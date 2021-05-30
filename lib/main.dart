@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:billing_test/consumable_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
-
-import 'package:http/http.dart' as http;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,6 +62,8 @@ class _BillingPageState extends State<BillingPage> {
   var _purchasePending = false;
   var _loading = true;
   String? _queryProductError;
+
+  var orderKey = "";
 
   @override
   void initState() {
@@ -260,7 +262,7 @@ class _BillingPageState extends State<BillingPage> {
                       backgroundColor: Colors.green[800],
                       primary: Colors.white,
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       late PurchaseParam purchaseParam;
 
                       if (Platform.isAndroid) {
@@ -287,6 +289,25 @@ class _BillingPageState extends State<BillingPage> {
                           applicationUserName: null,
                         );
                       }
+
+                      var response = await http.post(
+                        Uri.http(
+                            '192.168.0.8:8080', '/api/v1/order/inapp/ready'),
+                        headers: {
+                          HttpHeaders.contentTypeHeader: ContentType.json.value,
+                          HttpHeaders.authorizationHeader: 'test'
+                        },
+                        body: jsonEncode({
+                          'amount': productDetails.rawPrice,
+                          'currency_code': productDetails.currencyCode,
+                          'product_key': productDetails.id,
+                          'store_type':
+                          Platform.isAndroid ? 'play_store' : 'app_store',
+                          'is_subscription': true,
+                        }),
+                      );
+
+                      orderKey = jsonDecode(response.body)['order_key'];
 
                       if (productDetails.id == _kConsumableId) {
                         _inAppPurchase.buyConsumable(
@@ -395,18 +416,20 @@ class _BillingPageState extends State<BillingPage> {
     var response = await http.post(
       Uri(
         scheme: 'http',
-        host: '10.120.0.104',
+        host: '192.168.0.8',
         port: 8080,
-        path: '/api/order/inapp/subscription/purchase',
+        path: '/api/v1/order/inapp/subscription/purchase',
       ),
       headers: {
-        HttpHeaders.contentTypeHeader: ContentType.json.value
+        HttpHeaders.contentTypeHeader: ContentType.json.value,
+        HttpHeaders.authorizationHeader: 'test',
       },
       body: jsonEncode({
-        'order_key' : 'test',
-        'purchased_token' : purchaseDetails.verificationData.serverVerificationData,
-        'product_id' : purchaseDetails.productID,
-        'store_type' : 'play_store'
+        'order_key': orderKey.isEmpty ? '21052800000078' : orderKey,
+        'purchased_token':
+            purchaseDetails.verificationData.serverVerificationData,
+        'product_key': purchaseDetails.productID,
+        'store_type': Platform.isAndroid ? 'play_store' : 'app_store'
       }),
     );
 
