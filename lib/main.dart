@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +33,8 @@ const _kProductIds = <String>[
   _kSilverSubscriptionId,
   _kGoldSubscriptionId,
 ];
+
+const _url = 'http://10.120.0.104:8080';
 
 class MyApp extends StatelessWidget {
   @override
@@ -62,8 +65,6 @@ class _BillingPageState extends State<BillingPage> {
   var _purchasePending = false;
   var _loading = true;
   String? _queryProductError;
-
-  var orderKey = "";
 
   @override
   void initState() {
@@ -291,23 +292,26 @@ class _BillingPageState extends State<BillingPage> {
                       }
 
                       var response = await http.post(
-                        Uri.http(
-                            '192.168.0.8:8080', '/api/v1/order/inapp/ready'),
+                        Uri.parse('$_url/api/v1/order/inapp/ready'),
                         headers: {
                           HttpHeaders.contentTypeHeader: ContentType.json.value,
                           HttpHeaders.authorizationHeader: 'test'
                         },
                         body: jsonEncode({
-                          'amount': productDetails.rawPrice,
-                          'currency_code': productDetails.currencyCode,
                           'product_key': productDetails.id,
                           'store_type':
-                          Platform.isAndroid ? 'play_store' : 'app_store',
+                              Platform.isAndroid ? 'play_store' : 'app_store',
                           'is_subscription': true,
                         }),
                       );
 
-                      orderKey = jsonDecode(response.body)['order_key'];
+                      print(response.body);
+
+                      var sharedPreferences = await SharedPreferences.getInstance();
+
+                      sharedPreferences.setString("orderKey", jsonDecode(response.body)['order_key']);
+                      sharedPreferences.setDouble("amount", productDetails.rawPrice);
+                      sharedPreferences.setString("currencyCode", productDetails.currencyCode);
 
                       if (productDetails.id == _kConsumableId) {
                         _inAppPurchase.buyConsumable(
@@ -413,28 +417,42 @@ class _BillingPageState extends State<BillingPage> {
     print(purchaseDetails.verificationData.localVerificationData);
     print(purchaseDetails.verificationData.source);
 
-    var response = await http.post(
-      Uri(
-        scheme: 'http',
-        host: '192.168.0.8',
-        port: 8080,
-        path: '/api/v1/order/inapp/subscription/purchase',
-      ),
+    var pref = await SharedPreferences.getInstance();
+
+    var orderKey = pref.getString("orderKey");
+    var amount = pref.getDouble("amount");
+    var currencyCode = pref.getString("currencyCode");
+
+    var response = await http.put(
+      Uri.parse('$_url/api/v1/order/inapp/subscription/purchase'),
       headers: {
         HttpHeaders.contentTypeHeader: ContentType.json.value,
         HttpHeaders.authorizationHeader: 'test',
       },
       body: jsonEncode({
-        'order_key': orderKey.isEmpty ? '21052800000078' : orderKey,
+        'order_key': orderKey,
         'purchased_token':
             purchaseDetails.verificationData.serverVerificationData,
         'product_key': purchaseDetails.productID,
-        'store_type': Platform.isAndroid ? 'play_store' : 'app_store'
+        'store_type': Platform.isAndroid ? 'play_store' : 'app_store',
+        'amount': amount,
+        'currency_code': currencyCode,
       }),
     );
 
     print(response.statusCode);
     print(response.body);
+
+    var response2 = await http.put(
+      Uri.parse('$_url/api/v1/order/complete/$orderKey'),
+      headers: {
+        HttpHeaders.contentTypeHeader: ContentType.json.value,
+        HttpHeaders.authorizationHeader: 'test',
+      },
+    );
+
+    print(response2.statusCode);
+    print(response2.body);
 
     return response.statusCode == 200;
   }
