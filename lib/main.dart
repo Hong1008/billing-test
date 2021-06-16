@@ -34,7 +34,7 @@ const _kProductIds = <String>[
   _kGoldSubscriptionId,
 ];
 
-const _url = 'http://10.120.0.104:8080';
+const _url = 'http://10.120.1.170:8080';
 
 class MyApp extends StatelessWidget {
   @override
@@ -424,10 +424,10 @@ class _BillingPageState extends State<BillingPage> {
     var currencyCode = pref.getString("currencyCode");
 
     var response = await http.put(
-      Uri.parse('$_url/api/v1/order/inapp/subscription/purchase'),
+      Uri.parse('$_url/api/v1/order/inapp${purchaseDetails.productID == _kConsumableId ? '' : '/subscription'}/purchase'),
       headers: {
         HttpHeaders.contentTypeHeader: ContentType.json.value,
-        HttpHeaders.authorizationHeader: 'test',
+        HttpHeaders.authorizationHeader: 'Bearer test',
       },
       body: jsonEncode({
         'order_key': orderKey,
@@ -447,7 +447,7 @@ class _BillingPageState extends State<BillingPage> {
       Uri.parse('$_url/api/v1/order/complete/$orderKey'),
       headers: {
         HttpHeaders.contentTypeHeader: ContentType.json.value,
-        HttpHeaders.authorizationHeader: 'test',
+        HttpHeaders.authorizationHeader: 'Bearer test',
       },
     );
 
