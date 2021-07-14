@@ -35,6 +35,8 @@ const _kProductIds = <String>[
 ];
 
 const _url = 'http://10.120.1.170:8080';
+const _readyPath = '/api/subscriptions/payments';
+const _purchasePath = '/api/subscriptions/payments';
 
 class MyApp extends StatelessWidget {
   @override
@@ -291,25 +293,8 @@ class _BillingPageState extends State<BillingPage> {
                         );
                       }
 
-                      var response = await http.post(
-                        Uri.parse('$_url/api/v1/order/inapp/ready'),
-                        headers: {
-                          HttpHeaders.contentTypeHeader: ContentType.json.value,
-                          HttpHeaders.authorizationHeader: 'test'
-                        },
-                        body: jsonEncode({
-                          'product_key': productDetails.id,
-                          'store_type':
-                              Platform.isAndroid ? 'play_store' : 'app_store',
-                          'is_subscription': true,
-                        }),
-                      );
-
-                      print(response.body);
-
                       var sharedPreferences = await SharedPreferences.getInstance();
 
-                      sharedPreferences.setString("orderKey", jsonDecode(response.body)['order_key']);
                       sharedPreferences.setDouble("amount", productDetails.rawPrice);
                       sharedPreferences.setString("currencyCode", productDetails.currencyCode);
 
@@ -419,40 +404,28 @@ class _BillingPageState extends State<BillingPage> {
 
     var pref = await SharedPreferences.getInstance();
 
-    var orderKey = pref.getString("orderKey");
     var amount = pref.getDouble("amount");
     var currencyCode = pref.getString("currencyCode");
 
     var response = await http.put(
-      Uri.parse('$_url/api/v1/order/inapp${purchaseDetails.productID == _kConsumableId ? '' : '/subscription'}/purchase'),
+      Uri.parse('$_url/api/v1/order/inapp/purchase'),
       headers: {
         HttpHeaders.contentTypeHeader: ContentType.json.value,
         HttpHeaders.authorizationHeader: 'Bearer test',
       },
       body: jsonEncode({
-        'order_key': orderKey,
         'purchased_token':
             purchaseDetails.verificationData.serverVerificationData,
         'product_key': purchaseDetails.productID,
         'store_type': Platform.isAndroid ? 'play_store' : 'app_store',
         'amount': amount,
         'currency_code': currencyCode,
+        'order_type': purchaseDetails.productID == _kConsumableId ? 'NORMAL' : 'SUBSCRIBE'
       }),
     );
 
     print(response.statusCode);
     print(response.body);
-
-    var response2 = await http.put(
-      Uri.parse('$_url/api/v1/order/complete/$orderKey'),
-      headers: {
-        HttpHeaders.contentTypeHeader: ContentType.json.value,
-        HttpHeaders.authorizationHeader: 'Bearer test',
-      },
-    );
-
-    print(response2.statusCode);
-    print(response2.body);
 
     return response.statusCode == 200;
   }
