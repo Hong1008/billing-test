@@ -34,9 +34,7 @@ const _kProductIds = <String>[
   _kGoldSubscriptionId,
 ];
 
-const _url = 'http://10.120.1.170:8080';
-const _readyPath = '/api/subscriptions/payments';
-const _purchasePath = '/api/subscriptions/payments';
+const _url = 'https://dev-billing.hodooenglish.com';
 
 class MyApp extends StatelessWidget {
   @override
@@ -407,7 +405,7 @@ class _BillingPageState extends State<BillingPage> {
     var amount = pref.getDouble("amount");
     var currencyCode = pref.getString("currencyCode");
 
-    var response = await http.put(
+    var response = await http.post(
       Uri.parse('$_url/api/v1/order/inapp/purchase'),
       headers: {
         HttpHeaders.contentTypeHeader: ContentType.json.value,
